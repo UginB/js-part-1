@@ -60,11 +60,10 @@ const output = document.getElementById('output');
         const fromCountryValue = countriesData[fromCountry.value].cca3;
         const toCountryValue = countriesData[toCountry.value].cca3;
         const searchingArr = [];
-        let countOfRequests = 0;
+        let countOfRequests = 1;
         let countOfAttemps = 0;
         getCountrieData(fromCountryValue).then((data) => {
             archive[fromCountryValue] = data;
-            countOfRequests += 1;
             for (let i = 0; i < archive[fromCountryValue].borders.length; i++) {
                 if (archive[fromCountryValue].borders[i] === toCountryValue) {
                     search = false;
@@ -80,82 +79,31 @@ const output = document.getElementById('output');
                     countOfRequests += 1;
                 }
             }
-            return Promise.all(searchingArr).then(() => console.log(archive));
-        });
-
-        if (search) {
-            while (search && countOfAttemps < 10) {
-                for (const country in archive) {
-                    // console.log(country);
-                    for (let i = 1; i < archive[country].length; i++) {
-                        if (archive[country][i] === countriesData[toCountry.value].cca3) {
-                            search = false;
-                            console.log('ПРИЕХАЛИ!');
+            countOfAttemps += 1;
+            return Promise.all(searchingArr).then(() => {
+                if (search) {
+                    while (search && countOfAttemps < 10) {
+                        for (const country in archive) {
+                            for (let i = 1; i < archive[country].borders.length; i++) {
+                                if (archive[country].borders[i] === countriesData[toCountry.value].cca3) {
+                                    search = false;
+                                    console.log('ПРИЕХАЛИ!');
+                                }
+                                if (search) {
+                                    getCountrieData(archive[country].borders[i]).then((res) => {
+                                        archive[archive[country].borders[i]] = res;
+                                    });
+                                    countOfRequests += 1;
+                                }
+                            }
                         }
-                        if (!archive[archive[country][i]] && search) {
-                            getCountrieData(archive[country][i]).then((res) => {
-                                archive[archive[country][i]] = res.borders;
-                            });
-                        }
+                        countOfAttemps += 1;
                     }
                 }
-                countOfAttemps += 1;
                 console.log(archive);
-            }
-        }
-
-        // const keys = Object.keys(archive); // ["name", "stars", "capacity"]
-        // console.log(keys);
-        // for (const key of keys) {
-        //     console.log('Value: ', archive[key]);
-        // }
-        // console.log(archive);
+                console.log(countOfAttemps);
+                console.log(countOfRequests);
+            });
+        });
     });
 })();
-
-// form.addEventListener('submit', (event) => {
-//     event.preventDefault();
-//     const archive = {};
-//     const countOfRequests = 0;
-//     let countOfAttemps = 0;
-//     let search = true;
-//     getCountrieData(countriesData[fromCountry.value].cca3).then((data) => {
-//         archive[countriesData[fromCountry.value].cca3] = data.borders;
-//         // while (search && countOfAttemps < 10) {
-//         for (const country in archive) {
-//             // console.log(country);
-//             for (let i = 1; i < archive[country].length; i++) {
-//                 if (archive[country][i] === countriesData[toCountry.value].cca3) {
-//                     search = false;
-//                     console.log('ПРИЕХАЛИ!');
-//                 }
-//                 if (!archive[archive[country][i]] && search) {
-//                     getCountrieData(archive[country][i]).then((res) => {
-//                         archive[archive[country][i]] = res.borders;
-//                     });
-//                 }
-//             }
-//         }
-//         countOfAttemps += 1;
-//         console.log(archive);
-//     });
-
-//     for (let item of archive) {
-//         console.log(item);
-//     }
-//     console.log([...archive]);
-// });
-
-// const searchCountryes = (arr, arch, search) => {
-//     for (let i = 0; i < arr.length; i++) {
-//         if (arr.borders[i] === countriesData[toCountry.value].cca3) {
-//             search = false;
-//             console.log('ПРИЕХАЛИ!');
-//         }
-//         if (!arch[arr[i]] && search) {
-//             return getCountrieData(arr[i]).then((res) => {
-//                 arch[arr[i]] = res;
-//             });
-//         }
-//     }
-// };
