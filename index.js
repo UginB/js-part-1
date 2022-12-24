@@ -57,53 +57,198 @@ const output = document.getElementById('output');
 
     form.addEventListener('submit', (event) => {
         event.preventDefault();
+
         const fromCountryValue = countriesData[fromCountry.value].cca3;
         const toCountryValue = countriesData[toCountry.value].cca3;
-        const searchingArr = [];
+        const way = [];
         let countOfRequests = 1;
         let countOfAttemps = 0;
-        getCountrieData(fromCountryValue).then((data) => {
-            archive[fromCountryValue] = data;
-            for (let i = 0; i < archive[fromCountryValue].borders.length; i++) {
-                if (archive[fromCountryValue].borders[i] === toCountryValue) {
-                    search = false;
-                    console.log('ПРИЕХАЛИ!');
-                    break;
-                }
-                if (search) {
-                    searchingArr.push(
-                        getCountrieData(archive[fromCountryValue].borders[i]).then((res) => {
-                            archive[archive[fromCountryValue].borders[i]] = res;
-                        })
-                    );
-                    countOfRequests += 1;
-                }
-            }
-            countOfAttemps += 1;
+        let nextSearching;
+
+        const getBorders = (searchingArr) => {
             return Promise.all(searchingArr).then(() => {
-                if (search) {
-                    while (search && countOfAttemps < 10) {
-                        for (const country in archive) {
-                            for (let i = 1; i < archive[country].borders.length; i++) {
-                                if (archive[country].borders[i] === countriesData[toCountry.value].cca3) {
-                                    search = false;
-                                    console.log('ПРИЕХАЛИ!');
-                                }
-                                if (search) {
-                                    getCountrieData(archive[country].borders[i]).then((res) => {
-                                        archive[archive[country].borders[i]] = res;
-                                    });
-                                    countOfRequests += 1;
-                                }
-                            }
+                const nextSearchingArr = [];
+                for (const country in archive) {
+                    for (let i = 1; i < archive[country].borders.length; i++) {
+                        if (archive[country].borders[i] === countriesData[toCountry.value].cca3) {
+                            search = false;
+                            console.log('ПРИЕХАЛИ!');
                         }
-                        countOfAttemps += 1;
+                        if (search && !archive[archive[country].borders[i]]) {
+                            nextSearchingArr.push(
+                                getCountrieData(archive[country].borders[i]).then((res) => {
+                                    archive[archive[country].borders[i]] = res;
+                                })
+                            );
+                            countOfRequests += 1;
+                        }
                     }
                 }
+                countOfAttemps += 1;
                 console.log(archive);
                 console.log(countOfAttemps);
                 console.log(countOfRequests);
+                nextSearching = nextSearchingArr;
             });
-        });
+        };
+
+        const searchToCountry = async (fromCountryArr) => {
+            await getBorders(fromCountryArr);
+            while (search && countOfAttemps < 10) {
+                await getBorders(nextSearching);
+            }
+            console.log(archive);
+        };
+
+        const fromCountrySearchingArr = [];
+
+        fromCountrySearchingArr.push(
+            getCountrieData(fromCountryValue).then((data) => {
+                archive[fromCountryValue] = data;
+            })
+        );
+
+        searchToCountry(fromCountrySearchingArr);
+
+        // getCountrieData(fromCountryValue).then((data) => {
+        //     archive[fromCountryValue] = data;
+
+        // const searchingArr = [];
+        // for (let i = 0; i < archive[fromCountryValue].borders.length; i++) {
+        //     if (archive[fromCountryValue].borders[i] === toCountryValue) {
+        //         search = false;
+        //         console.log('ПРИЕХАЛИ!');
+        //         break;
+        //     }
+        //     if (search) {
+        //         searchingArr.push(
+        //             getCountrieData(archive[fromCountryValue].borders[i]).then((res) => {
+        //                 archive[archive[fromCountryValue].borders[i]] = res;
+        //             })
+        //         );
+        //         countOfRequests += 1;
+        //     }
+        // }
+        // countOfAttemps += 1;
+
+        // for (let index = 0; index < 10; index++) {
+        //     const searchingArr1 = [];
+        //     Promise.all(searchingArr).then(() => {
+        //         for (const country in archive) {
+        //             for (let i = 1; i < archive[country].borders.length; i++) {
+        //                 if (archive[country].borders[i] === countriesData[toCountry.value].cca3) {
+        //                     search = false;
+        //                     console.log('ПРИЕХАЛИ!');
+        //                 }
+        //                 if (search && !archive[archive[country].borders[i]]) {
+        //                     searchingArr1.push(
+        //                         getCountrieData(archive[country].borders[i]).then((res) => {
+        //                             archive[archive[country].borders[i]] = res;
+        //                         })
+        //                     );
+        //                     countOfRequests += 1;
+        //                 }
+        //             }
+        //         }
+        //         countOfAttemps += 1;
+        //         console.log(archive);
+        //         console.log(countOfAttemps);
+        //         console.log(countOfRequests);
+        //     });
+        // }
+
+        // const searchingArr1 = [];
+        // Promise.all(searchingArr).then(() => {
+        //     for (const country in archive) {
+        //         for (let i = 1; i < archive[country].borders.length; i++) {
+        //             if (archive[country].borders[i] === countriesData[toCountry.value].cca3) {
+        //                 search = false;
+        //                 console.log('ПРИЕХАЛИ!');
+        //             }
+        //             if (search && !archive[archive[country].borders[i]]) {
+        //                 searchingArr1.push(
+        //                     getCountrieData(archive[country].borders[i]).then((res) => {
+        //                         archive[archive[country].borders[i]] = res;
+        //                     })
+        //                 );
+        //                 countOfRequests += 1;
+        //             }
+        //         }
+        //     }
+        //     countOfAttemps += 1;
+        //     console.log(archive);
+        //     console.log(countOfAttemps);
+        //     console.log(countOfRequests);
+        // });
+        // const searchingArr2 = [];
+        // Promise.all(searchingArr1).then(() => {
+        //     for (const country in archive) {
+        //         for (let i = 1; i < archive[country].borders.length; i++) {
+        //             if (archive[country].borders[i] === countriesData[toCountry.value].cca3) {
+        //                 search = false;
+        //                 console.log('ПРИЕХАЛИ!');
+        //             }
+        //             if (search && !archive[archive[country].borders[i]]) {
+        //                 searchingArr2.push(
+        //                     getCountrieData(archive[country].borders[i]).then((res) => {
+        //                         archive[archive[country].borders[i]] = res;
+        //                     })
+        //                 );
+        //                 countOfRequests += 1;
+        //             }
+        //         }
+        //     }
+        //     countOfAttemps += 1;
+        //     console.log(archive);
+        //     console.log(countOfAttemps);
+        //     console.log(countOfRequests);
+        // });
+        // const searchingArr3 = [];
+        // Promise.all(searchingArr2).then(() => {
+        //     for (const country in archive) {
+        //         for (let i = 1; i < archive[country].borders.length; i++) {
+        //             if (archive[country].borders[i] === countriesData[toCountry.value].cca3) {
+        //                 search = false;
+        //                 console.log('ПРИЕХАЛИ!');
+        //             }
+        //             if (search && !archive[archive[country].borders[i]]) {
+        //                 searchingArr3.push(
+        //                     getCountrieData(archive[country].borders[i]).then((res) => {
+        //                         archive[archive[country].borders[i]] = res;
+        //                     })
+        //                 );
+        //                 countOfRequests += 1;
+        //             }
+        //         }
+        //     }
+        //     countOfAttemps += 1;
+        //     console.log(archive);
+        //     console.log(countOfAttemps);
+        //     console.log(countOfRequests);
+        // });
+        // const searchingArr4 = [];
+        // Promise.all(searchingArr3).then(() => {
+        //     for (const country in archive) {
+        //         for (let i = 1; i < archive[country].borders.length; i++) {
+        //             if (archive[country].borders[i] === countriesData[toCountry.value].cca3) {
+        //                 search = false;
+        //                 console.log('ПРИЕХАЛИ!');
+        //             }
+        //             if (search && !archive[archive[country].borders[i]]) {
+        //                 searchingArr4.push(
+        //                     getCountrieData(archive[country].borders[i]).then((res) => {
+        //                         archive[archive[country].borders[i]] = res;
+        //                     })
+        //                 );
+        //                 countOfRequests += 1;
+        //             }
+        //         }
+        //     }
+        //     countOfAttemps += 1;
+        //     console.log(archive);
+        //     console.log(countOfAttemps);
+        //     console.log(countOfRequests);
+        // });
+        // });
     });
 })();
