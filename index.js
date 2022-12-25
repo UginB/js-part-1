@@ -31,6 +31,7 @@ const toCountry = document.getElementById('toCountry');
 const countriesList = document.getElementById('countriesList');
 const submit = document.getElementById('submit');
 const output = document.getElementById('output');
+const reset = document.getElementById('reset');
 
 (async () => {
     fromCountry.disabled = true;
@@ -54,66 +55,102 @@ const output = document.getElementById('output');
     toCountry.disabled = false;
     submit.disabled = false;
 
-    const archive = {};
+    reset.addEventListener('click', (event) => {
+        event.preventDefault();
+        fromCountry.value = '';
+        toCountry.value = '';
+        output.innerHTML = '';
+    });
 
     form.addEventListener('submit', (event) => {
         event.preventDefault();
-        const fromCountryValue = countriesData[fromCountry.value].cca3;
-        const toCountryValue = countriesData[toCountry.value].cca3;
+        output.textContent = '';
+        let fromCountryValue;
+        let toCountryValue;
+        try {
+            fromCountry.style.backgroundColor = '';
+            fromCountryValue = countriesData[fromCountry.value].cca3;
+        } catch {
+            fromCountry.style.backgroundColor = 'red';
+            const error = document.createElement('p');
+            error.textContent = `Неверно указана начальная страна!`;
+            output.appendChild(error);
+        }
+        try {
+            toCountry.style.backgroundColor = '';
+            toCountryValue = countriesData[toCountry.value].cca3;
+        } catch {
+            toCountry.style.backgroundColor = 'red';
+            const error = document.createElement('p');
+            error.textContent = `Неверно указана конечная страна!`;
+            output.appendChild(error);
+        }
 
+        let error = false;
+        if (fromCountryValue && toCountryValue) {
+            error = false;
+        } else {
+            error = true;
+        }
+
+        if (fromCountryValue && toCountryValue && fromCountryValue === toCountryValue) {
+            error = true;
+            output.textContent = 'Начальная и конечная страна совпадают! Введите разные страны для поиска пути!';
+        }
+
+        const archive = {};
         let search = true;
         let way = [];
         let countOfRequests = 1;
         let countOfAttemps = 0;
         let nextSearching;
 
+        // функция для поиска соседей соседей и закидывания их в архив
         const getBorders = (searchingArr) => {
+            // массив для сбора соседей соседей
             const wayStep = {};
 
-            return Promise.all(searchingArr).then(() => {
-                const nextSearchingArr = [];
+            return Promise.all(searchingArr)
+                .then(() => {
+                    // массив для сбора соседей соседей для следующего поиска, если в этой итерации toCountry не найдется
+                    const nextSearchingArr = [];
+                    //
+                    for (const country in archive) {
+                        for (let i = 1; i < archive[country].borders.length; i++) {
+                            const countryFromBorders = archive[country].borders[i];
 
-                for (const country in archive) {
-                    for (let i = 1; i < archive[country].borders.length; i++) {
-                        const countrieFromBorders = archive[country].borders[i];
+                            if (search && !archive[countryFromBorders]) {
+                                nextSearchingArr.push(
+                                    // eslint-disable-next-line no-loop-func
+                                    getCountrieData(countryFromBorders, search).then((res) => {
+                                        archive[countryFromBorders] = res;
+                                        if (res.borders.includes(toCountryValue)) {
+                                            search = false;
+                                        }
+                                        wayStep[countryFromBorders] = [...res.borders];
+                                    })
+                                );
 
-                        // if (countrieFromBorders === toCountryValue) {
-                        //     search = false;
-                        //     console.log('ПРИЕХАЛИ!');
-                        // }
-
-                        if (search && !archive[countrieFromBorders]) {
-                            nextSearchingArr.push(
-                                // eslint-disable-next-line no-loop-func
-                                getCountrieData(countrieFromBorders, search).then((res) => {
-                                    archive[countrieFromBorders] = res;
-                                    if (res.borders.includes(toCountryValue)) {
-                                        search = false;
-                                        console.log('ПРИЕХАЛИ!');
-                                    }
-                                    wayStep[countrieFromBorders] = [...res.borders];
-                                })
-                            );
-
-                            countOfRequests += 1;
+                                countOfRequests += 1;
+                            }
                         }
                     }
-                }
 
-                countOfAttemps += 1;
-                way.push(wayStep);
-
-                // console.log(archive);
-                // console.log(countOfAttemps);
-                // console.log(countOfRequests);
-                // console.log(way);
-                nextSearching = nextSearchingArr;
-            });
+                    countOfAttemps += 1;
+                    way.push(wayStep);
+                    nextSearching = nextSearchingArr;
+                })
+                .catch(() => {
+                    const error = document.createElement('p');
+                    error.textContent = `УПС! Что-то пошло не так! Попробуйте перезагрузить страницу или зайти позже!`;
+                    error.style.color = 'red';
+                    output.appendChild(error);
+                });
         };
 
         const searchToCountry = async (fromCountryArr) => {
             await getBorders(fromCountryArr);
-
+            // углубляемся в соседей соседей, пока не найдем toCountry или колисчество попыток не дойжет до 10
             while (search && countOfAttemps < 10) {
                 // eslint-disable-next-line no-await-in-loop
                 await getBorders(nextSearching);
@@ -122,6 +159,7 @@ const output = document.getElementById('output');
             way = way.reverse();
             const sortWay = [];
 
+            // сортируем наш путь, и оставляем только непосредственно страны, через которые пойдем от fromCountry до toCountry
             for (let i = 0; i < way.length; i++) {
                 sortWay.push({});
                 for (const item in way[i]) {
@@ -138,13 +176,9 @@ const output = document.getElementById('output');
                 }
             }
 
-            const inputText = (output) => {
-                const text = `${fromCountry.value} →${output} ${toCountry.value}`;
-                return text;
-            };
-
             let outputArr = [''];
 
+            // Преобразуем массив пути в текст/ текста (если маршрут можно проложить несколькими способами)
             sortWay.reverse().forEach((country) => {
                 const countryItem = Object.keys(country);
 
@@ -161,7 +195,6 @@ const output = document.getElementById('output');
                     outputArr = outputArr.map((item, index) => {
                         if (index === outputArr.length / countryItem.length) {
                             count += 1;
-                            console.log(index);
                         }
 
                         return (item += ` ${archive[countryItem[count]].name.common} →`);
@@ -169,9 +202,10 @@ const output = document.getElementById('output');
                 }
             });
 
-            // console.log(countOfAttemps);
-            // console.log(countOfRequests);
-            // console.log(outputArr);
+            const inputText = (output) => {
+                const text = `${fromCountry.value} →${output} ${toCountry.value}`;
+                return text;
+            };
 
             outputArr.forEach((item) => {
                 const paragraph = document.createElement('p');
@@ -179,23 +213,32 @@ const output = document.getElementById('output');
                 output.appendChild(paragraph);
             });
 
-            const countOfRequestsParagraph = document.createElement('p');
-            countOfRequestsParagraph.textContent = `Понадобилось всего ${countOfRequests} запросов!`;
-            output.appendChild(countOfRequestsParagraph);
+            const bottomParagraph = document.createElement('p');
+            bottomParagraph.textContent = `Понадобилось всего ${countOfRequests} запросов!`;
+            output.appendChild(bottomParagraph);
+            if (countOfAttemps === 10) {
+                const tooFarParagraph = document.createElement('p');
+                tooFarParagraph.textContent = `Слишком далеко!`;
+                output.appendChild(tooFarParagraph);
+            }
         };
 
         const fromCountrySearchingArr = [];
 
-        fromCountrySearchingArr.push(
-            getCountrieData(fromCountryValue, search).then((data) => {
-                archive[fromCountryValue] = data;
-                if (data && data.borders.includes(toCountryValue)) {
-                    search = false;
-                    console.log('ПРИЕХАЛИ!');
-                }
-            })
-        );
+        // функция для поиска соседей fromCountry
 
-        searchToCountry(fromCountrySearchingArr);
+        if (!error) {
+            // ищем toCountry на основании массива соседей fromCountry
+            fromCountrySearchingArr.push(
+                getCountrieData(fromCountryValue, search).then((data) => {
+                    archive[fromCountryValue] = data;
+                    if (data && data.borders.includes(toCountryValue)) {
+                        search = false;
+                    }
+                })
+            );
+
+            searchToCountry(fromCountrySearchingArr);
+        }
     });
 })();
