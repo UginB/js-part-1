@@ -67,24 +67,28 @@ const reset = document.getElementById('reset');
     let archive = {};
     let search = true;
     let way = [];
-    let countOfRequests = 1;
+    let countOfRequests = 0;
     let countOfAttemps = 0;
     let nextSearching;
 
-    const createTextElementOutput = (innerText, errorElem) => {
+    const createText = (innerText) => {
         const elem = document.createElement('p');
         elem.textContent = innerText;
-        if (errorElem) {
-            elem.style.color = 'red';
-        }
         output.appendChild(elem);
     };
 
-    const searchNeighbors = async (cca3, toCountryValue, firstIteration, wayStep) => {
+    const createError = (innerText) => {
+        const elem = document.createElement('p');
+        elem.textContent = innerText;
+        elem.style.color = 'red';
+        output.appendChild(elem);
+    };
+
+    const searchNeighbors = async (cca3, toCountryCode, firstIteration, wayStep) => {
         await getCountryData(cca3)
             .then((res) => {
                 archive[cca3] = res;
-                if (res.borders.includes(toCountryValue)) {
+                if (res.borders.includes(toCountryCode)) {
                     search = false;
                 }
                 if (!firstIteration) {
@@ -93,19 +97,19 @@ const reset = document.getElementById('reset');
             })
             .catch((e) => {
                 search = false;
-                createTextElementOutput(
-                    `Ошибка со стороны сервера! ${e.message} Попробуйте перезагрузить страницу или зайти позже!`,
-                    true
+                createError(
+                    `Ошибка со стороны сервера. ${e.message} Попробуйте перезагрузить страницу или зайти позже.`
                 );
             });
+        countOfRequests += 1;
     };
 
     // функция для поиска соседей соседей и закидывания их в архив
-    const getBorders = (neighborsPromisesArr, toCountryValue) => {
+    const getBorders = (nextSearchPromises, toCountryCode) => {
         // массив для сбора соседей соседей
         const wayStep = {};
 
-        return Promise.all(neighborsPromisesArr)
+        return Promise.all(nextSearchPromises)
             .then(() => {
                 // массив для сбора соседей соседей для следующего поиска, если в этой итерации toCountry не найдется
                 const nextSearchingArr = [];
@@ -115,9 +119,7 @@ const reset = document.getElementById('reset');
                         const countryFromBorders = archive[country].borders[i];
 
                         if (search && !archive[countryFromBorders]) {
-                            nextSearchingArr.push(searchNeighbors(countryFromBorders, toCountryValue, false, wayStep));
-
-                            countOfRequests += 1;
+                            nextSearchingArr.push(searchNeighbors(countryFromBorders, toCountryCode, false, wayStep));
                         }
                     }
                 }
@@ -128,15 +130,14 @@ const reset = document.getElementById('reset');
             })
             .catch((e) => {
                 search = false;
-                createTextElementOutput(
-                    `Ошибка со стороны сервера! ${e.message} Попробуйте перезагрузить страницу или зайти позже!`,
-                    true
+                createError(
+                    `Ошибка со стороны сервера. ${e.message} Попробуйте перезагрузить страницу или зайти позже.`
                 );
             });
     };
 
-    const searchToCountry = async (fromCountryArr, toCountryValue) => {
-        await getBorders(fromCountryArr, toCountryValue);
+    const searchToCountry = async (fromCountryArr, toCountryCode) => {
+        await getBorders(fromCountryArr, toCountryCode);
         // углубляемся в соседей соседей, пока не найдем toCountry или колисчество попыток не дойжет до 10
         while (search && countOfAttemps < 10) {
             // eslint-disable-next-line no-await-in-loop
@@ -146,11 +147,12 @@ const reset = document.getElementById('reset');
         way = way.reverse();
         const sortWay = [];
 
-        // сортируем наш путь, и оставляем только непосредственно страны, через которые пойдем от fromCountry до toCountry
+        // сортируем наш путь, и оставляем только непосредственно страны, через которые пойдем от fromCountry до
+
         for (let i = 0; i < way.length; i++) {
             sortWay.push({});
             for (const item in way[i]) {
-                if (i === 1 && way[i][item].includes(toCountryValue)) {
+                if (i === 1 && way[i][item].includes(toCountryCode)) {
                     sortWay[i][item] = way[i][item];
                 } else {
                     // eslint-disable-next-line no-loop-func
@@ -168,7 +170,7 @@ const reset = document.getElementById('reset');
         // Преобразуем массив пути в текст/ текста (если маршрут можно проложить несколькими способами)
         sortWay.reverse().forEach((country) => {
             const countryItem = Object.keys(country);
-
+            console.log(countryItem);
             if (countryItem.length === 1) {
                 outputArr = outputArr.map((item) => {
                     return (item += ` ${archive[countryItem[0]].name.common} →`);
@@ -197,13 +199,13 @@ const reset = document.getElementById('reset');
         output.textContent = '';
 
         outputArr.forEach((item) => {
-            createTextElementOutput(inputText(item));
+            createText(inputText(item));
         });
 
-        createTextElementOutput(`Понадобилось всего ${countOfRequests} запросов!`);
+        createText(`Понадобилось всего ${countOfRequests} запросов!`);
 
-        if (countOfAttemps > 10) {
-            createTextElementOutput(`Слишком далеко!`);
+        if (outputArr.length < 9 && countOfAttemps === 10) {
+            createText(`Слишком далеко!`);
         }
     };
 
@@ -216,29 +218,29 @@ const reset = document.getElementById('reset');
         reset.disabled = true;
 
         output.textContent = '';
-        let fromCountryValue;
-        let toCountryValue;
+        let fromCountryCode;
+        let toCountryCode;
         try {
             fromCountry.style.backgroundColor = '';
-            fromCountryValue = countriesData[fromCountry.value].cca3;
+            fromCountryCode = countriesData[fromCountry.value].cca3;
         } catch {
             fromCountry.style.backgroundColor = 'red';
-            createTextElementOutput(`Неверно указана начальная страна!`, true);
+            createError(`Неверно указана начальная страна!`);
         }
         try {
             toCountry.style.backgroundColor = '';
-            toCountryValue = countriesData[toCountry.value].cca3;
+            toCountryCode = countriesData[toCountry.value].cca3;
         } catch {
             toCountry.style.backgroundColor = 'red';
-            createTextElementOutput(`Неверно указана конечная страна!`, true);
+            createError(`Неверно указана конечная страна!`);
         }
 
         let error = false;
-        if (!fromCountryValue || !toCountryValue) {
+        if (!fromCountryCode || !toCountryCode) {
             error = true;
         }
 
-        if (fromCountryValue && toCountryValue && fromCountryValue === toCountryValue) {
+        if (fromCountryCode && toCountryCode && fromCountryCode === toCountryCode) {
             error = true;
             output.textContent = 'Начальная и конечная страна совпадают! Введите разные страны для поиска пути!';
         }
@@ -249,14 +251,14 @@ const reset = document.getElementById('reset');
             const fromCountrySearchingArr = [];
 
             // ищем toCountry на основании массива соседей fromCountry
-            fromCountrySearchingArr.push(searchNeighbors(fromCountryValue, toCountryValue, true));
+            fromCountrySearchingArr.push(searchNeighbors(fromCountryCode, toCountryCode, true));
 
-            searchToCountry(fromCountrySearchingArr, toCountryValue);
+            searchToCountry(fromCountrySearchingArr, toCountryCode);
 
             archive = {};
             search = true;
             way = [];
-            countOfRequests = 1;
+            countOfRequests = 0;
             countOfAttemps = 0;
         }
         fromCountry.disabled = false;
